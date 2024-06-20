@@ -12,11 +12,13 @@ class Shuffle(Responder):
     def run(self):
         Responder.run(self)
 
+        payload_data = self.get_param("data", None, "No data was passed from TheHive")
+
         parsed_url = "%s/api/v1/workflows/%s/execute" % (self.url, self.workflow_id)
         headers = {
             "Authorization": "Bearer %s"  % self.api_key
         }
-        r = requests.post(parsed_url, headers=headers)
+        r = requests.post(parsed_url, headers=headers, json=payload_data)
         if r.status_code == 200:
             self.report({"Message": "Executed workflow"})
         else:
@@ -24,4 +26,3 @@ class Shuffle(Responder):
 
 if __name__ == '__main__':
     Shuffle().run()
-
