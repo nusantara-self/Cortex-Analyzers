@@ -102,7 +102,7 @@ jobs:
         with:
           driver-opts: image=moby/buildkit:v0.19.0
           args: |
-            --namespace cortexneurons --path analyzers -w ${{ matrix.directory }} --registry_dockerhub ${{ secrets.REGISTRY_DOCKERHUB }} --platform linux/amd64,linux/arm64 ${{ (startsWith(github.ref, 'refs/tags') || github.event_name == 'schedule') && '--stable' || '' }}
+            --namespace softybear --path analyzers -w ${{ matrix.directory }} --registry_dockerhub ${{ secrets.REGISTRY_DOCKERHUB }} --platform linux/amd64,linux/arm64 ${{ (startsWith(github.ref, 'refs/tags') || github.event_name == 'schedule') && '--stable' || '' }}
 
   build_responders:
     name: Build Responders (multi-arch)
@@ -132,7 +132,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-          
+
       - name: Create and use a new Buildx builder
         run: |
           docker buildx create --name mybuilder --driver docker-container --use --bootstrap || docker buildx use mybuilder
@@ -145,4 +145,4 @@ jobs:
         with:
           driver-opts: image=moby/buildkit:v0.19.0
           args: |
-            --namespace cortexneurons --path responders -w ${{ matrix.directory }} --registry_dockerhub ${{ secrets.REGISTRY_DOCKERHUB }} --platform linux/amd64,linux/arm64 ${{ (startsWith(github.ref, 'refs/tags') || github.event_name == 'schedule') && '--stable' || '' }}
+            --namespace softybear --path responders -w ${{ matrix.directory }} --registry_dockerhub ${{ secrets.REGISTRY_DOCKERHUB }} --platform linux/amd64,linux/arm64 ${{ (startsWith(github.ref, 'refs/tags') || github.event_name == 'schedule') && '--stable' || '' }}
