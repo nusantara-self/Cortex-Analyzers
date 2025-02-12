@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - develop
-      
+
 jobs:
   generate-matrix:
     name: Generate Matrix
@@ -17,24 +17,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: List analyzer and responder directories and build matrices
+      - name: Generate responders matrix
         id: set-matrix
         run: |
-          echo "Listing analyzer directories in 'analyzers/'..."
-          analyzer_dirs=$(find analyzers -mindepth 1 -maxdepth 1 -type d -printf '%f\n')
-          echo "Found analyzer directories:"
-          echo "$analyzer_dirs"
-
           echo "Listing responder directories in 'responders/'..."
           responder_dirs=$(find responders -mindepth 1 -maxdepth 1 -type d -printf '%f\n')
           echo "Found responder directories:"
           echo "$responder_dirs"
-
-          # Build JSON for responders
-          responder_json=$(echo "$responder_dirs" | jq -R -s -c 'split("\n")[:-1] | map({directory: .})')
           
-          # Add a component key to each and wrap them with "include"
-          responders_matrix=$(echo "$responder_json" | jq -c '{include: map(. + {component: "responders"})}')
+          responders_matrix='{"include": []}'
+          
+          for dir in $responder_dirs; do
+            echo "Processing directory: $dir"
+            for file in responders/"$dir"/*.json; do
+              if [ -f "$file" ]; then
+                echo "Found JSON file: $file"
+                json_name=$(basename "$file")
+                responders_matrix=$(echo "$responders_matrix" | jq --arg dir "$dir" --arg json_name "$json_name" \
+                  '.include += [{directory: $dir, json_file: $json_name, path: ($dir + "/" + $json_name)}]')
+              fi
+            done
+          done
           
           echo "Generated responders matrix: $responders_matrix"
           {
@@ -42,6 +45,7 @@ jobs:
             echo "$responders_matrix"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
+
 
   build_responders:
     name: Build Responders
