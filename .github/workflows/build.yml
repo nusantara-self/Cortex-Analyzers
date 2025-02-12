@@ -56,11 +56,6 @@ jobs:
                 "json_file": "velociraptor_flow.json",
                 "path": "Velociraptor/velociraptor_flow.json"
               }
-              # {
-              #   "directory": "AWSLambda",
-              #   "json_file": "AWSInvokeLambda.json",
-              #   "path": "AWSLambda/AWSInvokeLambda.json"
-              # }
             ]
           }'
           
