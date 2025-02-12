@@ -81,7 +81,7 @@ jobs:
       image_tag: ${{ steps.set_image_tag.outputs.IMAGE_TAG }}
     strategy:
       matrix: ${{ fromJson(needs.generate-matrix.outputs.responders_matrix) }}
-      max-parallel: 3
+      max-parallel: 7 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
