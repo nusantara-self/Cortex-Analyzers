@@ -67,8 +67,14 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
+      - name: Convert directory to lowercase
+        id: lowercase_dir
+        run: |
+          lower_dir=$(echo "${{ matrix.directory }}" | tr '[:upper:]' '[:lower:]')
+          echo "lower_dir=${lower_dir}" >> $GITHUB_ENV
+
       - name: Build and push multi-arch image
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v3 
         with:
           context: ./responders
           # Use the Dockerfile in the worker folder
@@ -78,7 +84,7 @@ jobs:
           # Push the image so that a manifest is created.
           push: true
           # Set your image tag (adjust the repository and tag as needed).
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.directory }}:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.lower_dir }}:latest
           # Add labels to the image.
           labels: |
             schema-version=1.0
