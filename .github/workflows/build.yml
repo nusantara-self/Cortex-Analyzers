@@ -106,7 +106,6 @@ jobs:
       - name: Parse JSON and set environment variables from matrix.path (using jq)
         id: parse_json
         run: |
-          # Use the JSON file specified in the matrix (e.g., "Velociraptor/velociraptor_flow.json")
           json_file="./responders/${{ matrix.path }}"
           if [ -f "$json_file" ]; then
             # Extract and convert 'name' to lowercase
@@ -126,10 +125,19 @@ jobs:
             echo "VERSION=${version}" >> $GITHUB_ENV
             echo "DESCRIPTION=${description}" >> $GITHUB_ENV
             echo "COMMAND=${command}" >> $GITHUB_ENV
+      
+            # If there is a dot in version, split and take the first number
+            if [[ "$version" == *.* ]]; then
+              version_split=$(echo "$version" | cut -d '.' -f 1)
+              echo "VERSION_SPLIT=${version_split}" >> $GITHUB_ENV
+            else
+              echo "VERSION_SPLIT=${version}" >> $GITHUB_ENV
+            fi
           else
             echo "File not found: $json_file"
             exit 1
           fi
+        
         
       - name: Check and create Dockerfile if not present
         run: |
