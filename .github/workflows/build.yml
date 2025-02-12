@@ -97,22 +97,33 @@ jobs:
           lower_dir=$(echo "${{ matrix.directory }}" | tr '[:upper:]' '[:lower:]')
           echo "lower_dir=${lower_dir}" >> $GITHUB_ENV
 
-      - name: Parse JSON and set lowercased name (using jq)
+      - name: Parse JSON and set environment variables from matrix.path (using jq)
         id: parse_json
         run: |
-          # Loop over JSON files in the directory (if more than one, this example picks the first one)
-          for json_file in ./responders/${{ matrix.directory }}/*.json; do
-            if [ -f "$json_file" ]; then
-              # Extract and convert to lowercase using jq
-              lower_name=$(jq -r '.name | ascii_downcase' "$json_file")
-              echo "Found JSON file: $json_file"
-              echo "Lowercase Name: $lower_name"
-              # Export the value for subsequent steps
-              echo "LOWERCASE_NAME=${lower_name}" >> $GITHUB_ENV
-              # If you only need one JSON file, you can break after processing the first one.
-              break
-            fi
-          done
+          # Use the JSON file specified in the matrix (e.g., "Velociraptor/velociraptor_flow.json")
+          json_file="./responders/${{ matrix.path }}"
+          if [ -f "$json_file" ]; then
+            # Extract and convert 'name' to lowercase
+            lower_name=$(jq -r '.name | ascii_downcase' "$json_file")
+            version=$(jq -r '.version // empty' "$json_file")
+            description=$(jq -r '.description // empty' "$json_file")
+            command=$(jq -r '.command // empty' "$json_file")
+            
+            echo "Found JSON file: $json_file"
+            echo "Lowercase Name: $lower_name"
+            echo "Version: $version"
+            echo "Description: $description"
+            echo "Command: $command"
+            
+            # Export the values as environment variables for subsequent steps
+            echo "LOWERCASE_NAME=${lower_name}" >> $GITHUB_ENV
+            echo "VERSION=${version}" >> $GITHUB_ENV
+            echo "DESCRIPTION=${description}" >> $GITHUB_ENV
+            echo "COMMAND=${command}" >> $GITHUB_ENV
+          else
+            echo "File not found: $json_file"
+            exit 1
+          fi
     
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v3 
@@ -126,15 +137,15 @@ jobs:
           push: true
           # Set your image tag (adjust the repository and tag as needed).
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.LOWERCASE_NAME }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.lower_name }}:latest
           # Add labels to the image.
           labels: |
             schema-version=1.0
             org.label-schema.build-date=${{ steps.build_date.outputs.date }}
-            org.label-schema.name=analyzer
-            org.label-schema.description=Fallback analyzer build
+            org.label-schema.name=${{ env.lower_name }}
+            org.label-schema.description=${{ env.description }}
             org.label-schema.url=https://thehive-project.org
             org.label-schema.vcs-url=https://github.com/TheHive-Project/Cortex-Analyzers
             org.label-schema.vcs-ref=${{ github.sha }}
             org.label-schema.vendor=TheHive Project
-            org.label-schema.version=1.0.0
+            org.label-schema.version=${{ env.version }}
