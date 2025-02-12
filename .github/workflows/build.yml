@@ -130,7 +130,25 @@ jobs:
             echo "File not found: $json_file"
             exit 1
           fi
-    
+
+      - name: Check and create Dockerfile if not present
+        run: |
+          # Define the path to the Dockerfile in the target responder directory.
+          dockerfile_path="responders/${{ matrix.directory }}/Dockerfile"
+          if [ ! -f "$dockerfile_path" ]; then
+            echo "Dockerfile not found in $dockerfile_path. Creating one..."
+            cat <<EOF > "$dockerfile_path"
+            FROM python:3-alpine
+            WORKDIR /worker
+            COPY requirements.txt ${{ matrix.directory }}/
+            RUN test ! -e ${{ matrix.directory }}/requirements.txt || pip install --no-cache-dir -r ${{ matrix.directory }}/requirements.txt
+            COPY . ${{ matrix.directory }}/
+            ENTRYPOINT ["python", "${{ env.COMMAND }}"]
+            EOF
+          else
+            echo "Dockerfile exists: $dockerfile_path"
+          fi
+
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v3 
         with:
