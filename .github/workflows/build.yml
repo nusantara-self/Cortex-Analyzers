@@ -17,32 +17,57 @@ jobs:
         with:
           fetch-depth: 0
 
+      # - name: Generate responders matrix
+      #   id: set-matrix
+      #   run: |
+      #     echo "Listing responder directories in 'responders/'..."
+      #     responder_dirs=$(find responders -mindepth 1 -maxdepth 1 -type d -printf '%f\n')
+      #     echo "Found responder directories:"
+      #     echo "$responder_dirs"
+          
+      #     responders_matrix='{"include": []}'
+          
+      #     for dir in $responder_dirs; do
+      #       echo "Processing directory: $dir"
+      #       for file in responders/"$dir"/*.json; do
+      #         if [ -f "$file" ]; then
+      #           echo "Found JSON file: $file"
+      #           json_name=$(basename "$file")
+      #           responders_matrix=$(echo "$responders_matrix" | jq --arg dir "$dir" --arg json_name "$json_name" \
+      #             '.include += [{directory: $dir, json_file: $json_name, path: ($dir + "/" + $json_name)}]')
+      #         fi
+      #       done
+      #     done
+          
+      #     echo "Generated responders matrix: $responders_matrix"
+      #     {
+      #       echo "responders_matrix<<EOF"
+      #       echo "$responders_matrix"
+      #       echo "EOF"
+      #     } >> "$GITHUB_OUTPUT"
       - name: Generate responders matrix
         id: set-matrix
         run: |
-          echo "Listing responder directories in 'responders/'..."
-          responder_dirs=$(find responders -mindepth 1 -maxdepth 1 -type d -printf '%f\n')
-          echo "Found responder directories:"
-          echo "$responder_dirs"
+          # For testing, we create a matrix with a single element.
+          test_matrix='{
+            "include": [
+              {
+                "directory": "Velociraptor",
+                "json_file": "velociraptor_flow.json",
+                "path": "Velociraptor/velociraptor_flow.json"
+              },
+              {
+                "directory": "AWSLambda",
+                "json_file": "AWSInvokeLambda.json",
+                "path": "AWSLambda/AWSInvokeLambda.json"
+              }
+            ]
+          }'
           
-          responders_matrix='{"include": []}'
-          
-          for dir in $responder_dirs; do
-            echo "Processing directory: $dir"
-            for file in responders/"$dir"/*.json; do
-              if [ -f "$file" ]; then
-                echo "Found JSON file: $file"
-                json_name=$(basename "$file")
-                responders_matrix=$(echo "$responders_matrix" | jq --arg dir "$dir" --arg json_name "$json_name" \
-                  '.include += [{directory: $dir, json_file: $json_name, path: ($dir + "/" + $json_name)}]')
-              fi
-            done
-          done
-          
-          echo "Generated responders matrix: $responders_matrix"
+          echo "Generated test responders matrix: $test_matrix"
           {
             echo "responders_matrix<<EOF"
-            echo "$responders_matrix"
+            echo "$test_matrix"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
