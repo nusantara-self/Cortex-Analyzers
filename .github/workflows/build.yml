@@ -1,5 +1,10 @@
 name: build
 
+on:
+  push:
+    branches:
+      - develop
+      
 jobs:
   generate-matrix:
     name: Generate Matrix
