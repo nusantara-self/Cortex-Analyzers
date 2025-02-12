@@ -4,12 +4,19 @@ on:
   push:
     branches:
       - develop
+    tags:
+      - "*"
+  workflow_dispatch:
+  schedule:
+    # Every Month, the first day at 8:42 
+    - cron: "42 8 1 * *"
 
 jobs:
   generate-matrix:
     name: Generate Matrix
     runs-on: ubuntu-latest
     outputs:
+      analyzers_matrix: ${{ steps.set-matrix.outputs.analyzers_matrix }}
       responders_matrix: ${{ steps.set-matrix.outputs.responders_matrix }}
     steps:
       - name: Checkout repository
@@ -17,71 +24,54 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Generate responders matrix
+      - name: List analyzer and responder directories and build matrices
         id: set-matrix
         run: |
+          echo "Listing analyzer directories in 'analyzers/'..."
+          analyzer_dirs=$(find analyzers -mindepth 1 -maxdepth 1 -type d -printf '%f\n')
+          echo "Found analyzer directories:"
+          echo "$analyzer_dirs"
+
           echo "Listing responder directories in 'responders/'..."
           responder_dirs=$(find responders -mindepth 1 -maxdepth 1 -type d -printf '%f\n')
           echo "Found responder directories:"
           echo "$responder_dirs"
+
+          # Build JSON for analyzers (each object has a directory name)
+          analyzer_json=$(echo "$analyzer_dirs" | jq -R -s -c 'split("\n")[:-1] | map({directory: .})')
+          # Build JSON for responders
+          responder_json=$(echo "$responder_dirs" | jq -R -s -c 'split("\n")[:-1] | map({directory: .})')
           
-          responders_matrix='{"include": []}'
-          
-          for dir in $responder_dirs; do
-            echo "Processing directory: $dir"
-            for file in responders/"$dir"/*.json; do
-              if [ -f "$file" ]; then
-                echo "Found JSON file: $file"
-                json_name=$(basename "$file")
-                responders_matrix=$(echo "$responders_matrix" | jq --arg dir "$dir" --arg json_name "$json_name" \
-                  '.include += [{directory: $dir, json_file: $json_name, path: ($dir + "/" + $json_name)}]')
-              fi
-            done
-          done
-          
+          # Wrap them in an "include" object
+          analyzers_matrix=$(echo "$analyzer_json" | jq -c '{include: .}')
+          responders_matrix=$(echo "$responder_json" | jq -c '{include: map(. + {component: "responders"})}')
+
+          echo "Generated analyzers matrix: $analyzers_matrix"
           echo "Generated responders matrix: $responders_matrix"
+          
+          {
+            echo "analyzers_matrix<<EOF"
+            echo "$analyzers_matrix"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          
           {
             echo "responders_matrix<<EOF"
             echo "$responders_matrix"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
-      # - name: Generate responders matrix
-      #   id: set-matrix
-      #   run: |
-      #     # For testing, we create a matrix with a single element.
-      #     test_matrix='{
-      #       "include": [
-      #         {
-      #           "directory": "Velociraptor",
-      #           "json_file": "velociraptor_flow.json",
-      #           "path": "Velociraptor/velociraptor_flow.json"
-      #         },
-      #         {
-      #           "directory": "AWSLambda",
-      #           "json_file": "AWSInvokeLambda.json",
-      #           "path": "AWSLambda/AWSInvokeLambda.json"
-      #         }
-      #       ]
-      #     }'
-          
-      #     echo "Generated test responders matrix: $test_matrix"
-      #     {
-      #       echo "responders_matrix<<EOF"
-      #       echo "$test_matrix"
-      #       echo "EOF"
-      #     } >> "$GITHUB_OUTPUT"
 
-
-  build_responders:
-    name: Build Responders
+  build_analyzers:
+    name: Build Analyzers (multi-arch)
     needs: generate-matrix
     runs-on: ubuntu-latest
-    continue-on-error: true
-    outputs:
-      image_tag: ${{ steps.set_image_tag.outputs.IMAGE_TAG }}
+    env:
+      DOCKER_BUILDKIT: 1
+      DOCKER_CLI_EXPERIMENTAL: enabled
     strategy:
-      matrix: ${{ fromJson(needs.generate-matrix.outputs.responders_matrix) }}
-      max-parallel: 7 
+      fail-fast: false
+      matrix:
+        directory: ${{ fromJson(needs.generate-matrix.outputs.analyzers_matrix).include[*].directory }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -94,193 +84,53 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Docker Hub Login
-        uses: docker/login-action@v3
+      - name: Create and use a new Buildx builder
+        run: |
+          docker buildx create --name mybuilder --driver docker-container --use --bootstrap || docker buildx use mybuilder
+          docker buildx ls
+      - name: Pre-pull builder image (if not already cached)
+        run: docker pull thehiveproject/cortex-neurons-builder:latest
+
+      - name: Build analyzer ${{ matrix.directory }} (linux/amd64,linux/arm64)
+        uses: docker://thehiveproject/cortex-neurons-builder:latest
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          driver-opts: image=moby/buildkit:v0.19.0
+          args: |
+            --namespace cortexneurons --path analyzers -w ${{ matrix.directory }} --registry_dockerhub ${{ secrets.REGISTRY_DOCKERHUB }} --platform linux/amd64,linux/arm64 ${{ (startsWith(github.ref, 'refs/tags') || github.event_name == 'schedule') && '--stable' || '' }}
 
-      - name: Convert directory to lowercase
-        id: lowercase_dir
-        run: |
-          lower_dir=$(echo "${{ matrix.directory }}" | tr '[:upper:]' '[:lower:]')
-          echo "lower_dir=${lower_dir}" >> $GITHUB_ENV
-
-      - name: Parse JSON and set environment variables from matrix.path (using jq)
-        id: parse_json
-        run: |
-          json_file="./responders/${{ matrix.path }}"
-          if [ -f "$json_file" ]; then
-            # Extract and convert 'name' to lowercase
-            lower_name=$(jq -r '.name | ascii_downcase' "$json_file")
-            version=$(jq -r '.version // empty' "$json_file")
-            description=$(jq -r '.description // empty' "$json_file")
-            command=$(jq -r '.command // empty' "$json_file")
-            
-            echo "Found JSON file: $json_file"
-            echo "Lowercase Name: $lower_name"
-            echo "Version: $version"
-            echo "Description: $description"
-            echo "Command: $command"
-            
-            # Export the values as environment variables for subsequent steps
-            echo "LOWERCASE_NAME=${lower_name}" >> $GITHUB_ENV
-            echo "VERSION=${version}" >> $GITHUB_ENV
-            echo "DESCRIPTION=${description}" >> $GITHUB_ENV
-            echo "COMMAND=${command}" >> $GITHUB_ENV
-      
-            # If there is a dot in version, split and take the first number
-            if [[ "$version" == *.* ]]; then
-              version_split=$(echo "$version" | cut -d '.' -f 1)
-              echo "VERSION_SPLIT=${version_split}" >> $GITHUB_ENV
-            else
-              echo "VERSION_SPLIT=${version}" >> $GITHUB_ENV
-            fi
-          else
-            echo "File not found: $json_file"
-            exit 1
-          fi
-        
-        
-      - name: Check and create Dockerfile if not present
-        run: |
-          # Define the path to the Dockerfile in the target responder directory.
-          dockerfile_path="responders/${{ matrix.directory }}/Dockerfile"
-          matrix_directory="${{ matrix.directory }}"
-          command_value="${{ env.COMMAND }}"
-          
-          if [ ! -f "$dockerfile_path" ]; then
-            echo "Dockerfile not found in $dockerfile_path. Creating one..."
-            echo "FROM python:3-alpine" > "$dockerfile_path"
-            echo "WORKDIR /worker" >> "$dockerfile_path"
-            echo "COPY requirements.txt ${matrix_directory}/" >> "$dockerfile_path"
-            echo "RUN test ! -e ${matrix_directory}/requirements.txt || pip install --no-cache-dir -r ${matrix_directory}/requirements.txt" >> "$dockerfile_path"
-            echo "COPY . ${matrix_directory}/" >> "$dockerfile_path"
-            echo "ENTRYPOINT [\"python\", \"${command_value}\"]" >> "$dockerfile_path"
-          else
-            echo "Dockerfile exists: $dockerfile_path"
-          fi  
-
-      - name: Build and push multi-arch image
-        uses: docker/build-push-action@v3 
+  build_responders:
+    name: Build Responders (multi-arch)
+    needs: generate-matrix
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_BUILDKIT: 1
+      DOCKER_CLI_EXPERIMENTAL: enabled
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: ${{ fromJson(needs.generate-matrix.outputs.responders_matrix).include[*].directory }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          context: responders/${{ matrix.directory }}
-          # Use the Dockerfile in the worker folder
-          file: ./responders/${{ matrix.directory }}/Dockerfile
-          # Build for both amd64 and arm64.
-          platforms: linux/amd64,linux/arm64
-          # Push the image so that a manifest is created.
-          push: true
-          # Set your image tag (adjust the repository and tag as needed).
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.LOWERCASE_NAME }}:${{ (startsWith(github.ref, 'refs/tags') || github.event_name == 'schedule') && env.VERSION || 'devel' }}
+          fetch-depth: 0
 
-          # Add labels to the image.
-          labels: |
-            schema-version=1.0
-            org.label-schema.build-date=${{ steps.build_date.outputs.date }}
-            org.label-schema.name=${{ env.LOWERCASE_NAME }}
-            org.label-schema.description=${{ env.DESCRIPTION }}
-            org.label-schema.url=https://thehive-project.org
-            org.label-schema.vcs-url=https://github.com/TheHive-Project/Cortex-Analyzers
-            org.label-schema.vcs-ref=${{ github.sha }}
-            org.label-schema.vendor=TheHive Project
-            org.label-schema.version=${{ env.VERSION }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-  # test_image:
-  #   name: Test Docker Image Imports
-  #   needs: build_responders
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     matrix: ${{ fromJson(needs.generate-matrix.outputs.responders_matrix) }}
-  #     max-parallel: 3
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-  #     - name: Parse JSON and set environment variables from matrix.path (using jq)
-  #       id: parse_json_test
-  #       run: |
-  #         # Re-parse the JSON file so we have the same environment variables for testing.
-  #         json_file="./responders/${{ matrix.path }}"
-  #         if [ -f "$json_file" ]; then
-  #           lower_name=$(jq -r '.name | ascii_downcase' "$json_file")
-  #           version=$(jq -r '.version // empty' "$json_file")
-  #           description=$(jq -r '.description // empty' "$json_file")
-  #           command=$(jq -r '.command // empty' "$json_file")
-            
-  #           echo "Testing JSON file: $json_file"
-  #           echo "LOWERCASE_NAME=${lower_name}" >> $GITHUB_ENV
-  #           echo "VERSION=${version}" >> $GITHUB_ENV
-  #           echo "DESCRIPTION=${description}" >> $GITHUB_ENV
-  #           echo "COMMAND=${command}" >> $GITHUB_ENV
-  #         else
-  #           echo "File not found: $json_file"
-  #           exit 1
-  #         fi
+      - name: Create and use a new Buildx builder
+        run: |
+          docker buildx create --name mybuilder --driver docker-container --use --bootstrap || docker buildx use mybuilder
+          docker buildx ls
+      - name: Pre-pull builder image (if not already cached)
+        run: docker pull thehiveproject/cortex-neurons-builder:latest
 
-  #     - name: Test Python imports in built image
-  #       run: |
-  #         # Get the image tag from the previous job
-  #         IMAGE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.LOWERCASE_NAME }}:${{ env.VERSION }}"
-  #         echo "Testing image: ${IMAGE_TAG}"
-
-  #         # Inline Python script that tests the image's imports
-  #         python - <<'EOF'
-  #         import subprocess
-  #         import sys
-  #         import textwrap
-
-  #         # Set up parameters (you might get these from environment variables or hard-code for testing)
-  #         image_tag = "${IMAGE_TAG}"
-  #         command = "${{ env.COMMAND }}"           # Ensure env.COMMAND is set from a previous step or adjust as needed.
-  #         worker_name = "${{ matrix.directory }}"   # Adjust if needed, for example, if you want to pass the worker directory name.
-
-  #         # Prepare the testing code
-  #         test_code = textwrap.dedent(f"""
-  #             import os, sys, re, os.path as osp
-
-  #             entrypoint_full = "{command}"
-  #             fallback_dir = "{worker_name}"
-  #             if "/" in entrypoint_full:
-  #                 dir_part = osp.dirname(entrypoint_full)
-  #                 file_part = osp.basename(entrypoint_full)
-  #                 if not os.path.isdir(dir_part) and os.path.isdir(fallback_dir):
-  #                     dir_part = fallback_dir
-  #                 os.chdir(osp.join(os.getcwd(), dir_part))
-  #                 entrypoint = file_part
-  #             else:
-  #                 entrypoint = entrypoint_full
-
-  #             if not os.path.exists(entrypoint):
-  #                 print("❌ ERROR: {{}} not found inside the container.".format(entrypoint))
-  #                 sys.exit(1)
-
-  #             with open(entrypoint, 'r', encoding='utf-8') as f:
-  #                 content = f.readlines()
-
-  #             imports = [line.strip() for line in content if re.match(r'^\\s*(import|from)\\s+[a-zA-Z0-9_.]+', line)]
-  #             print("🔍 Checking Python imports from", entrypoint)
-  #             for imp in imports:
-  #                 try:
-  #                     exec(imp)
-  #                     print("✅", imp, "- SUCCESS")
-  #                 except Exception as e:
-  #                     print("❌", imp, "- FAILED:", e)
-  #                     sys.exit(1)
-  #             print("✅ All imports tested successfully!")
-  #         """)
-
-  #         # Run the test inside a container based on the built image.
-  #         result = subprocess.run(
-  #             ["docker", "run", "--rm", "--entrypoint", "python", image_tag, "-c", test_code],
-  #             capture_output=True, text=True
-  #         )
-
-  #         print(result.stdout)
-  #         if result.returncode != 0:
-  #             print("⚠️ Import testing FAILED with exit code", result.returncode)
-  #             sys.exit(result.returncode)
-  #         else:
-  #             print("✅ Import testing succeeded")
-  #         EOF
+      - name: Build responder ${{ matrix.directory }} (linux/amd64,linux/arm64)
+        uses: docker://thehiveproject/cortex-neurons-builder:latest
+        with:
+          driver-opts: image=moby/buildkit:v0.19.0
+          args: |
+            --namespace cortexneurons --path responders -w ${{ matrix.directory }} --registry_dockerhub ${{ secrets.REGISTRY_DOCKERHUB }} --platform linux/amd64,linux/arm64 ${{ (startsWith(github.ref, 'refs/tags') || github.event_name == 'schedule') && '--stable' || '' }}
