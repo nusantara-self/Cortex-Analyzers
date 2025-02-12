@@ -77,6 +77,8 @@ jobs:
     needs: generate-matrix
     runs-on: ubuntu-latest
     continue-on-error: true
+    outputs:
+      image_tag: ${{ steps.set_image_tag.outputs.IMAGE_TAG }}
     strategy:
       matrix: ${{ fromJson(needs.generate-matrix.outputs.responders_matrix) }}
     steps:
@@ -183,6 +185,14 @@ jobs:
             org.label-schema.vcs-ref=${{ github.sha }}
             org.label-schema.vendor=TheHive Project
             org.label-schema.version=${{ env.VERSION }}
+
+      - name: Set image tag output
+        id: set_image_tag
+        run: |
+          IMAGE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.LOWERCASE_NAME }}:${{ (startsWith(github.ref, 'refs/tags') || github.event_name == 'schedule') && env.VERSION || 'devel' }}"
+          echo "IMAGE_TAG=${IMAGE_TAG}"
+          echo "::set-output name=IMAGE_TAG::${IMAGE_TAG}"
+
   test_image:
     name: Test Docker Image Imports
     needs: build_responders
