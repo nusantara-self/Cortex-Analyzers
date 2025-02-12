@@ -183,7 +183,6 @@ jobs:
             org.label-schema.vcs-ref=${{ github.sha }}
             org.label-schema.vendor=TheHive Project
             org.label-schema.version=${{ env.VERSION }}
-
   test_image:
     name: Test Docker Image Imports
     needs: build_responders
@@ -200,60 +199,60 @@ jobs:
 
           # Inline Python script that tests the image's imports
           python - <<'EOF'
-import subprocess
-import sys
-import textwrap
+          import subprocess
+          import sys
+          import textwrap
 
-# Set up parameters (you might get these from environment variables or hard-code for testing)
-image_tag = "${IMAGE_TAG}"
-command = "${{ env.COMMAND }}"           # Ensure env.COMMAND is set from a previous step or adjust as needed.
-worker_name = "${{ matrix.directory }}"   # Adjust if needed, for example, if you want to pass the worker directory name.
+          # Set up parameters (you might get these from environment variables or hard-code for testing)
+          image_tag = "${IMAGE_TAG}"
+          command = "${{ env.COMMAND }}"           # Ensure env.COMMAND is set from a previous step or adjust as needed.
+          worker_name = "${{ matrix.directory }}"   # Adjust if needed, for example, if you want to pass the worker directory name.
 
-# Prepare the testing code
-test_code = textwrap.dedent(f"""
-    import os, sys, re, os.path as osp
+          # Prepare the testing code
+          test_code = textwrap.dedent(f"""
+              import os, sys, re, os.path as osp
 
-    entrypoint_full = "{command}"
-    fallback_dir = "{worker_name}"
-    if "/" in entrypoint_full:
-        dir_part = osp.dirname(entrypoint_full)
-        file_part = osp.basename(entrypoint_full)
-        if not os.path.isdir(dir_part) and os.path.isdir(fallback_dir):
-            dir_part = fallback_dir
-        os.chdir(osp.join(os.getcwd(), dir_part))
-        entrypoint = file_part
-    else:
-        entrypoint = entrypoint_full
+              entrypoint_full = "{command}"
+              fallback_dir = "{worker_name}"
+              if "/" in entrypoint_full:
+                  dir_part = osp.dirname(entrypoint_full)
+                  file_part = osp.basename(entrypoint_full)
+                  if not os.path.isdir(dir_part) and os.path.isdir(fallback_dir):
+                      dir_part = fallback_dir
+                  os.chdir(osp.join(os.getcwd(), dir_part))
+                  entrypoint = file_part
+              else:
+                  entrypoint = entrypoint_full
 
-    if not os.path.exists(entrypoint):
-        print("❌ ERROR: {{}} not found inside the container.".format(entrypoint))
-        sys.exit(1)
+              if not os.path.exists(entrypoint):
+                  print("❌ ERROR: {{}} not found inside the container.".format(entrypoint))
+                  sys.exit(1)
 
-    with open(entrypoint, 'r', encoding='utf-8') as f:
-        content = f.readlines()
+              with open(entrypoint, 'r', encoding='utf-8') as f:
+                  content = f.readlines()
 
-    imports = [line.strip() for line in content if re.match(r'^\\s*(import|from)\\s+[a-zA-Z0-9_.]+', line)]
-    print("🔍 Checking Python imports from", entrypoint)
-    for imp in imports:
-        try:
-            exec(imp)
-            print("✅", imp, "- SUCCESS")
-        except Exception as e:
-            print("❌", imp, "- FAILED:", e)
-            sys.exit(1)
-    print("✅ All imports tested successfully!")
-""")
+              imports = [line.strip() for line in content if re.match(r'^\\s*(import|from)\\s+[a-zA-Z0-9_.]+', line)]
+              print("🔍 Checking Python imports from", entrypoint)
+              for imp in imports:
+                  try:
+                      exec(imp)
+                      print("✅", imp, "- SUCCESS")
+                  except Exception as e:
+                      print("❌", imp, "- FAILED:", e)
+                      sys.exit(1)
+              print("✅ All imports tested successfully!")
+          """)
 
-# Run the test inside a container based on the built image.
-result = subprocess.run(
-    ["docker", "run", "--rm", "--entrypoint", "python", image_tag, "-c", test_code],
-    capture_output=True, text=True
-)
+          # Run the test inside a container based on the built image.
+          result = subprocess.run(
+              ["docker", "run", "--rm", "--entrypoint", "python", image_tag, "-c", test_code],
+              capture_output=True, text=True
+          )
 
-print(result.stdout)
-if result.returncode != 0:
-    print("⚠️ Import testing FAILED with exit code", result.returncode)
-    sys.exit(result.returncode)
-else:
-    print("✅ Import testing succeeded")
-EOF
+          print(result.stdout)
+          if result.returncode != 0:
+              print("⚠️ Import testing FAILED with exit code", result.returncode)
+              sys.exit(result.returncode)
+          else:
+              print("✅ Import testing succeeded")
+          EOF
