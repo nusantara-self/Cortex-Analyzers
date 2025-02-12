@@ -5,7 +5,6 @@ jobs:
     name: Generate Matrix
     runs-on: ubuntu-latest
     outputs:
-      analyzers_matrix: ${{ steps.set-matrix.outputs.analyzers_matrix }}
       responders_matrix: ${{ steps.set-matrix.outputs.responders_matrix }}
     steps:
       - name: Checkout repository
@@ -62,33 +61,27 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-  
-        # 6. Capture the current build date for labeling.
-        - name: Set build date
-          id: build_date
-          run: echo "::set-output name=date::$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-  
-        # 7. Build and push the image using the official build-push-action.
-        - name: Build and push multi-arch image
-          uses: docker/build-push-action@v3
-          with:
-            context: ./responders
-            # Use the Dockerfile in the worker folder
-            file: ./${{ matrix.directory }}/Dockerfile
-            # Build for both amd64 and arm64.
-            platforms: linux/amd64,linux/arm64
-            # Push the image so that a manifest is created.
-            push: true
-            # Set your image tag (adjust the repository and tag as needed).
-            tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.directory }}:latest
-            # Add labels to the image.
-            labels: |
-              schema-version=1.0
-              org.label-schema.build-date=${{ steps.build_date.outputs.date }}
-              org.label-schema.name=analyzer
-              org.label-schema.description=Fallback analyzer build
-              org.label-schema.url=https://thehive-project.org
-              org.label-schema.vcs-url=https://github.com/TheHive-Project/Cortex-Analyzers
-              org.label-schema.vcs-ref=${{ github.sha }}
-              org.label-schema.vendor=TheHive Project
-              org.label-schema.version=1.0.0
+
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v3
+        with:
+          context: ./responders
+          # Use the Dockerfile in the worker folder
+          file: ./${{ matrix.directory }}/Dockerfile
+          # Build for both amd64 and arm64.
+          platforms: linux/amd64,linux/arm64
+          # Push the image so that a manifest is created.
+          push: true
+          # Set your image tag (adjust the repository and tag as needed).
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.directory }}:latest
+          # Add labels to the image.
+          labels: |
+            schema-version=1.0
+            org.label-schema.build-date=${{ steps.build_date.outputs.date }}
+            org.label-schema.name=analyzer
+            org.label-schema.description=Fallback analyzer build
+            org.label-schema.url=https://thehive-project.org
+            org.label-schema.vcs-url=https://github.com/TheHive-Project/Cortex-Analyzers
+            org.label-schema.vcs-ref=${{ github.sha }}
+            org.label-schema.vendor=TheHive Project
+            org.label-schema.version=1.0.0
