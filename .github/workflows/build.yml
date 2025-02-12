@@ -55,6 +55,11 @@ jobs:
                 "directory": "Velociraptor",
                 "json_file": "velociraptor_flow.json",
                 "path": "Velociraptor/velociraptor_flow.json"
+              },
+              {
+                "directory": "AWSLambda",
+                "json_file": "AWSInvokeLambda.json",
+                "path": "AWSLambda/AWSInvokeLambda.json"
               }
             ]
           }'
@@ -71,6 +76,7 @@ jobs:
     name: Build Responders
     needs: generate-matrix
     runs-on: ubuntu-latest
+    continue-on-error: true
     strategy:
       matrix: ${{ fromJson(needs.generate-matrix.outputs.responders_matrix) }}
     steps:
@@ -137,15 +143,17 @@ jobs:
           push: true
           # Set your image tag (adjust the repository and tag as needed).
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.lower_name }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.LOWERCASE_NAME }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.LOWERCASE_NAME }}:${{ env.VERSION }}
+
           # Add labels to the image.
           labels: |
             schema-version=1.0
             org.label-schema.build-date=${{ steps.build_date.outputs.date }}
-            org.label-schema.name=${{ env.lower_name }}
-            org.label-schema.description=${{ env.description }}
+            org.label-schema.name=${{ env.LOWERCASE_NAME }}
+            org.label-schema.description=${{ env.DESCRIPTION }}
             org.label-schema.url=https://thehive-project.org
             org.label-schema.vcs-url=https://github.com/TheHive-Project/Cortex-Analyzers
             org.label-schema.vcs-ref=${{ github.sha }}
             org.label-schema.vendor=TheHive Project
-            org.label-schema.version=${{ env.version }}
+            org.label-schema.version=${{ env.VERSION }}
