@@ -73,18 +73,36 @@ jobs:
           lower_dir=$(echo "${{ matrix.directory }}" | tr '[:upper:]' '[:lower:]')
           echo "lower_dir=${lower_dir}" >> $GITHUB_ENV
 
+      - name: Parse JSON and set lowercased name (using jq)
+        id: parse_json
+        run: |
+          # Loop over JSON files in the directory (if more than one, this example picks the first one)
+          for json_file in ./responders/${{ matrix.directory }}/*.json; do
+            if [ -f "$json_file" ]; then
+              # Extract and convert to lowercase using jq
+              lower_name=$(jq -r '.name | ascii_downcase' "$json_file")
+              echo "Found JSON file: $json_file"
+              echo "Lowercase Name: $lower_name"
+              # Export the value for subsequent steps
+              echo "LOWERCASE_NAME=${lower_name}" >> $GITHUB_ENV
+              # If you only need one JSON file, you can break after processing the first one.
+              break
+            fi
+          done
+    
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v3 
         with:
-          context: ./responders
+          context: responders/${{ matrix.directory }}
           # Use the Dockerfile in the worker folder
-          file: ./${{ matrix.directory }}/Dockerfile
+          file: ./responders/${{ matrix.directory }}/Dockerfile
           # Build for both amd64 and arm64.
           platforms: linux/amd64,linux/arm64
           # Push the image so that a manifest is created.
           push: true
           # Set your image tag (adjust the repository and tag as needed).
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.lower_dir }}:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.LOWERCASE_NAME }}:latest
           # Add labels to the image.
           labels: |
             schema-version=1.0
