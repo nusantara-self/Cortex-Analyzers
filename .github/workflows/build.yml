@@ -162,8 +162,7 @@ jobs:
           push: true
           # Set your image tag (adjust the repository and tag as needed).
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.LOWERCASE_NAME }}:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.LOWERCASE_NAME }}:${{ env.VERSION }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.LOWERCASE_NAME }}:${{ (startsWith(github.ref, 'refs/tags') || github.event_name == 'schedule') && env.VERSION || 'devel' }}
 
           # Add labels to the image.
           labels: |
