@@ -87,14 +87,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Build analyzer ${{ matrix.directory }} for testing (amd64 only)
-        uses: docker/build-push-action@v5
-        with:
-          context: ./analyzers/${{ matrix.directory }}
-          platforms: linux/amd64
-          load: true
-          tags: softybear/${{ matrix.directory }}:test-amd64
-
       - name: Build & Push Multi-arch Analyzer (amd64, arm64)
         uses: docker://thehiveproject/cortex-neurons-builder:latest
         with:
@@ -135,14 +127,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-
-      - name: Build responder ${{ matrix.directory }} for testing (amd64 only)
-        uses: docker/build-push-action@v5
-        with:
-          context: ./responders/${{ matrix.directory }}
-          platforms: linux/amd64
-          load: true
-          tags: softybear/${{ matrix.directory }}:test-amd64
 
       - name: Build & Push Multi-arch Responder (amd64, arm64)
         uses: docker://thehiveproject/cortex-neurons-builder:latest
