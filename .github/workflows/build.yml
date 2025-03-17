@@ -28,12 +28,12 @@ jobs:
         id: set-matrix
         run: |
           echo "Listing analyzer directories in 'analyzers/'..."
-          analyzer_dirs=$(find analyzers -mindepth 1 -maxdepth 1 -type d -printf '%f\n')
+          analyzer_dirs=$(find analyzers -mindepth 1 -maxdepth 1 -type d -printf '%f\n') | head -3
           echo "Found analyzer directories:"
           echo "$analyzer_dirs"
 
           echo "Listing responder directories in 'responders/'..."
-          responder_dirs=$(find responders -mindepth 1 -maxdepth 1 -type d -printf '%f\n')
+          responder_dirs=$(find responders -mindepth 1 -maxdepth 1 -type d -printf '%f\n') | head -3
           echo "Found responder directories:"
           echo "$responder_dirs"
 
