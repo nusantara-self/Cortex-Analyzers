@@ -89,16 +89,16 @@ jobs:
 
       - name: Build & Push Multi-arch Analyzer (amd64, arm64)
         run: |
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            --build-arg NAMESPACE=softybear \
-            --build-arg WORKER_DIR=${{ matrix.directory }} \
-            --build-arg REGISTRY_DOCKERHUB=${{ secrets.REGISTRY_DOCKERHUB }} \
-            -f ./analyzers/${{ matrix.directory }}/Dockerfile \
-            --push \
-            -t softybear/${{ matrix.directory }}:latest \
-            -t softybear/${{ matrix.directory }}:${{ github.ref_name }} \
-            .
+            docker buildx build \
+              --platform linux/amd64,linux/arm64 \
+              --build-arg NAMESPACE=softybear \
+              --build-arg WORKER_DIR=${{ matrix.directory }} \
+              --build-arg REGISTRY_DOCKERHUB=${{ secrets.REGISTRY_DOCKERHUB }} \
+              -f ./analyzers/${{ matrix.directory }}/Dockerfile \
+              --push \
+              -t softybear/${{ matrix.directory }}:latest \
+              -t softybear/${{ matrix.directory }}:${{ github.ref_name }} \
+              .
 
   build_responders:
     name: Build Responders (multi-arch)
@@ -131,13 +131,13 @@ jobs:
 
       - name: Build & Push Multi-arch Responder (amd64, arm64)
         run: |
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            --build-arg NAMESPACE=softybear \
-            --build-arg WORKER_DIR=${{ matrix.directory }} \
-            --build-arg REGISTRY_DOCKERHUB=${{ secrets.REGISTRY_DOCKERHUB }} \
-            -f ./analyzers/${{ matrix.directory }}/Dockerfile \
-            --push \
-            -t softybear/${{ matrix.directory }}:latest \
-            -t softybear/${{ matrix.directory }}:${{ github.ref_name }} \
-            . '' }}
+            docker buildx build \
+              --platform linux/amd64,linux/arm64 \
+              --build-arg NAMESPACE=softybear \
+              --build-arg WORKER_DIR=${{ matrix.directory }} \
+              --build-arg REGISTRY_DOCKERHUB=${{ secrets.REGISTRY_DOCKERHUB }} \
+              -f ./responders/${{ matrix.directory }}/Dockerfile \
+              --push \
+              -t softybear/${{ matrix.directory }}:latest \
+              -t softybear/${{ matrix.directory }}:${{ github.ref_name }} \
+              .
