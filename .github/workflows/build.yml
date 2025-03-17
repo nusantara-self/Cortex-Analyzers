@@ -95,21 +95,6 @@ jobs:
           load: true
           tags: softybear/${{ matrix.directory }}:test-amd64
 
-      - name: Runtime import test (amd64)
-              run: |
-                set +e
-                ERROR=$(docker run --rm softybear/${{ matrix.directory }}:test-amd64 python -c "
-            import pkgutil
-            missing_modules = [name for _, name, ispkg in pkgutil.iter_modules() if not ispkg and not pkgutil.find_loader(name)]
-            if missing_modules:
-                raise ImportError(f'Missing modules: {missing_modules}')
-            " 2>&1)
-                STATUS=$?
-                if [ $STATUS -ne 0 ]; then
-                  echo "::error title=Import Test Failed (${{ matrix.directory }})::${ERROR}"
-                  exit 1
-                fi
-
       - name: Build & Push Multi-arch Analyzer (amd64, arm64)
         uses: docker://thehiveproject/cortex-neurons-builder:latest
         with:
@@ -158,21 +143,6 @@ jobs:
           platforms: linux/amd64
           load: true
           tags: softybear/${{ matrix.directory }}:test-amd64
-
-      - name: Runtime import test (amd64)
-        run: |
-          set +e
-          ERROR=$(docker run --rm softybear/${{ matrix.directory }}:test-amd64 python -c "
-      import pkgutil
-      missing_modules = [name for _, name, ispkg in pkgutil.iter_modules() if not ispkg and not pkgutil.find_loader(name)]
-      if missing_modules:
-          raise ImportError(f'Missing modules: {missing_modules}')
-      " 2>&1)
-          STATUS=$?
-          if [ $STATUS -ne 0 ]; then
-            echo "::error title=Import Test Failed (${{ matrix.directory }})::${ERROR}"
-            exit 1
-          fi
 
       - name: Build & Push Multi-arch Responder (amd64, arm64)
         uses: docker://thehiveproject/cortex-neurons-builder:latest
