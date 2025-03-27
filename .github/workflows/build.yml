@@ -62,82 +62,97 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
   build_analyzers:
-    name: Build Analyzers (multi-arch)
     needs: generate-matrix
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
-      matrix:
-        directory: ${{ fromJson(needs.generate-matrix.outputs.analyzers_matrix).include[*].directory }}
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.analyzers_matrix) }}
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Docker Hub Login
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Push Multi-arch Analyzer (amd64, arm64)
+      - name: Build and Push Analyzer to GHCR
         run: |
-            docker buildx build \
-              --platform linux/amd64,linux/arm64 \
-              --build-arg NAMESPACE=softybear \
-              --build-arg WORKER_DIR=${{ matrix.directory }} \
-              --build-arg REGISTRY_DOCKERHUB=${{ secrets.REGISTRY_DOCKERHUB }} \
-              -f ./analyzers/${{ matrix.directory }}/Dockerfile \
-              --push \
-              -t softybear/${{ matrix.directory }}:latest \
-              -t softybear/${{ matrix.directory }}:${{ github.ref_name }} \
-              .
+          IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/cortex-analyzers/${{ matrix.directory }}
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -f ./analyzers/${{ matrix.directory }}/Dockerfile \
+            --push \
+            -t $IMAGE_NAME:latest \
+            -t $IMAGE_NAME:${{ github.ref_name }} \
+            ./analyzers/${{ matrix.directory }}
+
+      - name: Make analyzer image public
+        run: |
+          PACKAGE=${{ matrix.directory }}
+          VERSION_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/orgs/${{ github.repository_owner }}/packages/container/cortex-analyzers%2F$PACKAGE/versions \
+            | jq '.[0].id')
+
+          curl -X PATCH \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/orgs/${{ github.repository_owner }}/packages/container/cortex-analyzers%2F$PACKAGE/versions/$VERSION_ID \
+            -d '{"visibility":"public"}'
 
   build_responders:
-    name: Build Responders (multi-arch)
     needs: generate-matrix
     runs-on: ubuntu-latest
-    env:
-      DOCKER_BUILDKIT: 1
-      DOCKER_CLI_EXPERIMENTAL: enabled
+    permissions:
+      packages: write
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
-      matrix:
-        directory: ${{ fromJson(needs.generate-matrix.outputs.responders_matrix).include[*].directory }}
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.responders_matrix) }}
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Docker Hub Login
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Push Multi-arch Responder (amd64, arm64)
+      - name: Build and Push Responder to GHCR
         run: |
-            docker buildx build \
-              --platform linux/amd64,linux/arm64 \
-              --build-arg NAMESPACE=softybear \
-              --build-arg WORKER_DIR=${{ matrix.directory }} \
-              --build-arg REGISTRY_DOCKERHUB=${{ secrets.REGISTRY_DOCKERHUB }} \
-              -f ./responders/${{ matrix.directory }}/Dockerfile \
-              --push \
-              -t softybear/${{ matrix.directory }}:latest \
-              -t softybear/${{ matrix.directory }}:${{ github.ref_name }} \
-              .
+          IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/cortex-responders/${{ matrix.directory }}
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -f ./responders/${{ matrix.directory }}/Dockerfile \
+            --push \
+            -t $IMAGE_NAME:latest \
+            -t $IMAGE_NAME:${{ github.ref_name }} \
+            ./responders/${{ matrix.directory }}
+
+      - name: Make responder image public
+        run: |
+          PACKAGE=${{ matrix.directory }}
+          VERSION_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/orgs/${{ github.repository_owner }}/packages/container/cortex-responders%2F$PACKAGE/versions \
+            | jq '.[0].id')
+
+          curl -X PATCH \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/orgs/${{ github.repository_owner }}/packages/container/cortex-responders%2F$PACKAGE/versions/$VERSION_ID \
+            -d '{"visibility":"public"}'
