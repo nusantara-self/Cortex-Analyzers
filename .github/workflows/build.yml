@@ -887,6 +887,43 @@ jobs:
               print("::warning::Error during import testing (arm64):", e)
               sys.exit(1)
           EOF
+          
+  scan_images:
+    name: Scan Images and Upload SARIF
+    needs: [build_analyzers, build_responders]
+    runs-on: ubuntu-latest
+  
+    steps:
+      - uses: actions/checkout@v4
+  
+      - name: Set lowercase repo owner
+        run: |
+          owner="${{ github.repository_owner }}"
+          lower_owner=$(echo "$owner" | tr '[:upper:]' '[:lower:]')
+          echo "LOWER_REPO_OWNER=$lower_owner" >> $GITHUB_ENV
+  
+      - name: Scan each analyzer and responder image
+        run: |
+          mkdir -p sarif
+          images=$(find analyzers responders -mindepth 1 -maxdepth 1 -type d -exec basename {} \;)
+          for image_dir in $images; do
+            image_name=$(echo "$image_dir" | tr '[:upper:]' '[:lower:]')
+            image_tag="ghcr.io/${{ env.LOWER_REPO_OWNER }}/$image_name:devel"
+            sarif_output="sarif/$image_name.sarif"
+  
+            echo "Scanning $image_tag..."
+  
+            docker pull "$image_tag"
+  
+            docker run --rm \
+              -v $(pwd)/sarif:/sarif \
+              aquasec/trivy image --format sarif --output "/sarif/$image_name.sarif" "$image_tag"
+          done
+  
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sarif/*.sarif
 
   
   build_catalog:
