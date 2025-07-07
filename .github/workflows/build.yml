@@ -558,7 +558,7 @@ jobs:
           if [ ! -f "$dockerfile_path" ]; then
             echo "Dockerfile not found in $dockerfile_path. Creating one..."
             echo "FROM python:3-alpine" > "$dockerfile_path"
-            echo "RUN apk add --no-cache openssl ca-certificates" >> "$dockerfile_path"
+            echo "RUN apk add --no-cache openssl ca-certificates bind-tools" >> "$dockerfile_path"
 
 
             # Check if current worker is among special alpine workers
