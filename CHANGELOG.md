@@ -1,5 +1,51 @@
 # Changelog
 
+## [3.5.21](https://github.com/TheHive-Project/Cortex-Analyzers/tree/3.5.21) (2025-07-30)
+
+[Full Changelog](https://github.com/TheHive-Project/Cortex-Analyzers/compare/3.5.20...3.5.21)
+
+**Merged pull requests:**
+
+- MSEntraID - Enhancements & bug fixes [\#1366](https://github.com/TheHive-Project/Cortex-Analyzers/pull/1366) ([nusantara-self](https://github.com/nusantara-self))
+
+## [3.5.20](https://github.com/TheHive-Project/Cortex-Analyzers/tree/3.5.20) (2025-07-28)
+
+[Full Changelog](https://github.com/TheHive-Project/Cortex-Analyzers/compare/3.5.19...3.5.20)
+
+**Merged pull requests:**
+
+- Various small improvements [\#1365](https://github.com/TheHive-Project/Cortex-Analyzers/pull/1365) ([nusantara-self](https://github.com/nusantara-self))
+
+## [3.5.19](https://github.com/TheHive-Project/Cortex-Analyzers/tree/3.5.19) (2025-07-24)
+
+[Full Changelog](https://github.com/TheHive-Project/Cortex-Analyzers/compare/3.5.18...3.5.19)
+
+**Merged pull requests:**
+
+- JA4 FoxIO - JA4 fingerprint analyzer [\#1364](https://github.com/TheHive-Project/Cortex-Analyzers/pull/1364) ([nusantara-self](https://github.com/nusantara-self))
+- Gatewatcher - Add new features [\#1363](https://github.com/TheHive-Project/Cortex-Analyzers/pull/1363) ([remydewaGW](https://github.com/remydewaGW))
+- URLHaus - Add API Key requirement [\#1362](https://github.com/TheHive-Project/Cortex-Analyzers/pull/1362) ([Lohuss](https://github.com/Lohuss))
+
+## [3.5.18](https://github.com/TheHive-Project/Cortex-Analyzers/tree/3.5.18) (2025-06-23)
+
+[Full Changelog](https://github.com/TheHive-Project/Cortex-Analyzers/compare/3.5.17...3.5.18)
+
+**Closed issues:**
+
+- \[FR\] BitcoinAbuse analyzer fails – upstream API migrated to ChainAbuse [\#1360](https://github.com/TheHive-Project/Cortex-Analyzers/issues/1360)
+
+**Merged pull requests:**
+
+- Migrates BitcoinAbuse analyzer to new ChainAbuse [\#1361](https://github.com/TheHive-Project/Cortex-Analyzers/pull/1361) ([nusantara-self](https://github.com/nusantara-self))
+
+## [3.5.17](https://github.com/TheHive-Project/Cortex-Analyzers/tree/3.5.17) (2025-06-13)
+
+[Full Changelog](https://github.com/TheHive-Project/Cortex-Analyzers/compare/3.5.16...3.5.17)
+
+**Merged pull requests:**
+
+- Added the n8n responder [\#1359](https://github.com/TheHive-Project/Cortex-Analyzers/pull/1359) ([elohim666](https://github.com/elohim666))
+
 ## [3.5.16](https://github.com/TheHive-Project/Cortex-Analyzers/tree/3.5.16) (2025-06-06)
 
 [Full Changelog](https://github.com/TheHive-Project/Cortex-Analyzers/compare/3.5.15...3.5.16)
