@@ -296,7 +296,7 @@ jobs:
           image-ref: ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }}
           format: 'sarif'
           output: 'trivy-results.sarif'
-          scanners: 'vuln,secret,config'
+          scanners: 'vuln,secret,misconfig'
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
           exit-code: 0
@@ -744,7 +744,7 @@ jobs:
           image-ref: ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }}
           format: 'sarif'
           output: 'trivy-results.sarif'
-          scanners: 'vuln,secret,config'
+          scanners: 'vuln,secret,misconfig'
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
           exit-code: 0
