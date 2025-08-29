@@ -271,8 +271,8 @@ jobs:
           platforms: ${{ env.PLATFORMS }}
           push: true
           tags: ${{ env.IMAGE_TAGS }}
-          cache-from: type=registry,ref=ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:buildcache
-          cache-to: type=registry,ref=ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:buildcache,mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           labels: |
             org.opencontainers.image.created=${{ steps.build_date.outputs.date }}
             org.opencontainers.image.title=${{ env.LOWERCASE_NAME }}
@@ -708,8 +708,8 @@ jobs:
           platforms: ${{ env.PLATFORMS }}
           push: true
           tags: ${{ env.IMAGE_TAGS }}
-          cache-from: type=registry,ref=ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:buildcache
-          cache-to: type=registry,ref=ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:buildcache,mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           labels: |
             org.opencontainers.image.created=${{ steps.build_date.outputs.date }}
             org.opencontainers.image.title=${{ env.LOWERCASE_NAME }}
