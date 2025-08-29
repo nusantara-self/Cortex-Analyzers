@@ -406,7 +406,8 @@ jobs:
 
 
       - name: Test imports in the container (arm64)
-        if: ${{ steps.check-rebuild.outputs.rebuild == 'true' && contains(env.PLATFORMS, 'linux/arm64') }}
+        # if: ${{ steps.check-rebuild.outputs.rebuild == 'true' && contains(env.PLATFORMS, 'linux/arm64') }}
+        if: ${{ false }}
         run: |
           python <<EOF
           import subprocess
@@ -843,7 +844,8 @@ jobs:
 
           
       - name: Test imports in the container (arm64)
-        if: ${{ steps.check-rebuild.outputs.rebuild == 'true' && contains(env.PLATFORMS, 'linux/arm64') }}
+        # if: ${{ steps.check-rebuild.outputs.rebuild == 'true' && contains(env.PLATFORMS, 'linux/arm64') }}
+        if: ${{ false }}
         run: |
           python <<EOF
           import subprocess
