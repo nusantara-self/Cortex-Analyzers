@@ -190,8 +190,8 @@ jobs:
           COMPONENT_DIR: analyzers/${{ matrix.directory }}
         run: |
           set +x  # Disable command echoing for security
-
-         # Force rebuild on scheduled runs (cron)
+          
+          # Force rebuild on scheduled runs (cron)
           if [ "${{ github.event_name }}" = "schedule" ]; then
             echo "Scheduled run detected - forcing rebuild"
             echo "rebuild=true" >> $GITHUB_OUTPUT
@@ -629,8 +629,8 @@ jobs:
           COMPONENT_DIR: responders/${{ matrix.directory }}
         run: |
           set +x  # Disable command echoing for security
-
-         # Force rebuild on scheduled runs (cron)
+          
+          # Force rebuild on scheduled runs (cron)
           if [ "${{ github.event_name }}" = "schedule" ]; then
             echo "Scheduled run detected - forcing rebuild"
             echo "rebuild=true" >> $GITHUB_OUTPUT
