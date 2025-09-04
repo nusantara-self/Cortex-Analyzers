@@ -190,6 +190,13 @@ jobs:
           COMPONENT_DIR: analyzers/${{ matrix.directory }}
         run: |
           set +x  # Disable command echoing for security
+
+         # Force rebuild on scheduled runs (cron)
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "Scheduled run detected - forcing rebuild"
+            echo "rebuild=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           
           # Try to pull the image to check if it exists
           if docker pull --platform linux/amd64 "$IMAGE_NAME" >/dev/null 2>&1; then
@@ -622,7 +629,14 @@ jobs:
           COMPONENT_DIR: responders/${{ matrix.directory }}
         run: |
           set +x  # Disable command echoing for security
-          
+
+         # Force rebuild on scheduled runs (cron)
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "Scheduled run detected - forcing rebuild"
+            echo "rebuild=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           # Try to pull the image to check if it exists
           if docker pull --platform linux/amd64 "$IMAGE_NAME" >/dev/null 2>&1; then
             # Image exists, check if it has the current SHA
