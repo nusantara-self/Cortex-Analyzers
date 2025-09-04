@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.3-labs
-FROM python:3.9
+FROM python:3.12-slim-bookworm
 WORKDIR /worker
 COPY . Jupyter_Analyzer
 RUN test ! -e Jupyter_Analyzer/requirements.txt || pip install --no-cache-dir -r Jupyter_Analyzer/requirements.txt
