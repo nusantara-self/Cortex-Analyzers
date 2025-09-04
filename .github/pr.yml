@@ -1,0 +1,238 @@
+name: Pull Request Validation
+
+on:
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - 'analyzers/**'
+      - 'responders/**'
+
+permissions:
+  contents: read
+
+jobs:
+  detect-changes:
+    name: Detect Changed Components
+    runs-on: ubuntu-latest
+    outputs:
+      changed-analyzers: ${{ steps.changes.outputs.analyzers }}
+      changed-responders: ${{ steps.changes.outputs.responders }}
+      analyzers-matrix: ${{ steps.matrix.outputs.analyzers }}
+      responders-matrix: ${{ steps.matrix.outputs.responders }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changes
+        run: |
+          # Get changed files between base and head
+          git diff --name-only origin/${{ github.base_ref }}...HEAD > changed_files.txt
+          
+          # Extract changed analyzer directories
+          changed_analyzers=$(grep "^analyzers/" changed_files.txt | cut -d'/' -f2 | sort -u | jq -R -s -c 'split("\n")[:-1]')
+          changed_responders=$(grep "^responders/" changed_files.txt | cut -d'/' -f2 | sort -u | jq -R -s -c 'split("\n")[:-1]')
+          
+          echo "analyzers=$changed_analyzers" >> $GITHUB_OUTPUT
+          echo "responders=$changed_responders" >> $GITHUB_OUTPUT
+          
+          echo "Changed analyzers: $changed_analyzers"
+          echo "Changed responders: $changed_responders"
+
+      - name: Build matrices for changed components
+        id: matrix
+        run: |
+          # Build analyzer matrix for changed components only
+          if [ "${{ steps.changes.outputs.analyzers }}" != "[]" ] && [ "${{ steps.changes.outputs.analyzers }}" != "" ]; then
+            analyzers_matrix=$(echo '${{ steps.changes.outputs.analyzers }}' | jq -c 'map(select(. != "")) | map({directory: .}) | {include: .}')
+          else
+            analyzers_matrix='{"include":[]}'
+          fi
+          
+          # Build responder matrix for changed components only
+          if [ "${{ steps.changes.outputs.responders }}" != "[]" ] && [ "${{ steps.changes.outputs.responders }}" != "" ]; then
+            responders_matrix=$(echo '${{ steps.changes.outputs.responders }}' | jq -c 'map(select(. != "")) | map({directory: .}) | {include: .}')
+          else
+            responders_matrix='{"include":[]}'
+          fi
+          
+          echo "analyzers=$analyzers_matrix" >> $GITHUB_OUTPUT
+          echo "responders=$responders_matrix" >> $GITHUB_OUTPUT
+
+  validate-analyzers:
+    name: Validate Analyzers
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.changed-analyzers != '[]' && needs.detect-changes.outputs.changed-analyzers != '' }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      matrix: ${{ fromJson(needs.detect-changes.outputs.analyzers-matrix) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Validate JSON configuration
+        run: |
+          json_files=$(find analyzers/${{ matrix.directory }} -name "*.json" -type f)
+          for json_file in $json_files; do
+            echo "Validating $json_file"
+            if ! jq empty "$json_file" 2>/dev/null; then
+              echo "❌ Invalid JSON: $json_file"
+              exit 1
+            fi
+            echo "✅ Valid JSON: $json_file"
+          done
+
+      - name: Check required fields and format
+        run: |
+          json_files=$(find analyzers/${{ matrix.directory }} -name "*.json" -type f)
+          for json_file in $json_files; do
+            echo "Checking required fields in $json_file"
+            
+            # Check all 9 mandatory fields
+            required_fields=("name" "version" "author" "url" "license" "description" "dataTypeList" "command" "baseConfig")
+            for field in "${required_fields[@]}"; do
+              if ! jq -e ".$field" "$json_file" >/dev/null 2>&1; then
+                echo "❌ Missing required field '$field' in $json_file"
+                exit 1
+              fi
+            done
+            
+            # Validate name format (no whitespace)
+            name_value=$(jq -r '.name' "$json_file")
+            if [[ "$name_value" =~ [[:space:]] ]]; then
+              echo "❌ Invalid name format in $json_file: '$name_value' contains whitespace"
+              exit 1
+            fi
+            
+            # Validate URL format
+            url_value=$(jq -r '.url' "$json_file")
+            if ! [[ "$url_value" =~ ^https?:// ]]; then
+              echo "❌ Invalid URL format in $json_file: '$url_value' must be a valid URI"
+              exit 1
+            fi
+            
+            # Validate dataTypeList is array
+            if ! jq -e '.dataTypeList | type == "array"' "$json_file" >/dev/null 2>&1; then
+              echo "❌ dataTypeList must be an array in $json_file"
+              exit 1
+            fi
+            
+            # Validate configurationItems structure if present
+            if jq -e '.configurationItems' "$json_file" >/dev/null 2>&1; then
+              config_items_length=$(jq '.configurationItems | length' "$json_file")
+              for ((i=0; i<config_items_length; i++)); do
+                config_required=("name" "description" "type" "multi" "required")
+                for config_field in "${config_required[@]}"; do
+                  if ! jq -e ".configurationItems[$i].$config_field" "$json_file" >/dev/null 2>&1; then
+                    echo "❌ Missing required field '$config_field' in configurationItems[$i] in $json_file"
+                    exit 1
+                  fi
+                done
+              done
+            fi
+            
+            # Validate screenshots structure if present
+            if jq -e '.screenshots' "$json_file" >/dev/null 2>&1; then
+              screenshots_length=$(jq '.screenshots | length' "$json_file")
+              for ((i=0; i<screenshots_length; i++)); do
+                if ! jq -e ".screenshots[$i].path" "$json_file" >/dev/null 2>&1; then
+                  echo "❌ Missing required field 'path' in screenshots[$i] in $json_file"
+                  exit 1
+                fi
+              done
+            fi
+            
+            echo "✅ All required fields and formats valid in $json_file"
+          done
+
+
+  validate-responders:
+    name: Validate Responders
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.changed-responders != '[]' && needs.detect-changes.outputs.changed-responders != '' }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      matrix: ${{ fromJson(needs.detect-changes.outputs.responders-matrix) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Validate JSON configuration
+        run: |
+          json_files=$(find responders/${{ matrix.directory }} -name "*.json" -type f)
+          for json_file in $json_files; do
+            echo "Validating $json_file"
+            if ! jq empty "$json_file" 2>/dev/null; then
+              echo "❌ Invalid JSON: $json_file"
+              exit 1
+            fi
+            echo "✅ Valid JSON: $json_file"
+          done
+
+      - name: Check required fields and format
+        run: |
+          json_files=$(find responders/${{ matrix.directory }} -name "*.json" -type f)
+          for json_file in $json_files; do
+            echo "Checking required fields in $json_file"
+            
+            # Check all 9 mandatory fields
+            required_fields=("name" "version" "author" "url" "license" "description" "dataTypeList" "command" "baseConfig")
+            for field in "${required_fields[@]}"; do
+              if ! jq -e ".$field" "$json_file" >/dev/null 2>&1; then
+                echo "❌ Missing required field '$field' in $json_file"
+                exit 1
+              fi
+            done
+            
+            # Validate name format (no whitespace)
+            name_value=$(jq -r '.name' "$json_file")
+            if [[ "$name_value" =~ [[:space:]] ]]; then
+              echo "❌ Invalid name format in $json_file: '$name_value' contains whitespace"
+              exit 1
+            fi
+            
+            # Validate URL format
+            url_value=$(jq -r '.url' "$json_file")
+            if ! [[ "$url_value" =~ ^https?:// ]]; then
+              echo "❌ Invalid URL format in $json_file: '$url_value' must be a valid URI"
+              exit 1
+            fi
+            
+            # Validate dataTypeList is array
+            if ! jq -e '.dataTypeList | type == "array"' "$json_file" >/dev/null 2>&1; then
+              echo "❌ dataTypeList must be an array in $json_file"
+              exit 1
+            fi
+            
+            # Validate configurationItems structure if present
+            if jq -e '.configurationItems' "$json_file" >/dev/null 2>&1; then
+              config_items_length=$(jq '.configurationItems | length' "$json_file")
+              for ((i=0; i<config_items_length; i++)); do
+                config_required=("name" "description" "type" "multi" "required")
+                for config_field in "${config_required[@]}"; do
+                  if ! jq -e ".configurationItems[$i].$config_field" "$json_file" >/dev/null 2>&1; then
+                    echo "❌ Missing required field '$config_field' in configurationItems[$i] in $json_file"
+                    exit 1
+                  fi
+                done
+              done
+            fi
+            
+            # Validate screenshots structure if present
+            if jq -e '.screenshots' "$json_file" >/dev/null 2>&1; then
+              screenshots_length=$(jq '.screenshots | length' "$json_file")
+              for ((i=0; i<screenshots_length; i++)); do
+                if ! jq -e ".screenshots[$i].path" "$json_file" >/dev/null 2>&1; then
+                  echo "❌ Missing required field 'path' in screenshots[$i] in $json_file"
+                  exit 1
+                fi
+              done
+            fi
+            
+            echo "✅ All required fields and formats valid in $json_file"
+          done
