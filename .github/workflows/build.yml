@@ -11,6 +11,11 @@ on:
     # Every Month, the first day at 8:42 
     - cron: "42 8 1 * *"
 
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 jobs:
   generate-matrix:
     name: Generate Matrix
@@ -190,7 +195,7 @@ jobs:
           COMPONENT_DIR: analyzers/${{ matrix.directory }}
         run: |
           set +x  # Disable command echoing for security
-          
+
           # Force rebuild on scheduled runs (cron)
           if [ "${{ github.event_name }}" = "schedule" ]; then
             echo "Scheduled run detected - forcing rebuild"
@@ -238,8 +243,8 @@ jobs:
             # Keep one image tag for import testing
             echo "IMAGE_TAG=${{ env.VERSION_SPLIT }}" >> $GITHUB_ENV
             # Produce three tags:
-            #   1) :VERSION  (e.g. 2.0)
-            #   2) :VERSION_SPLIT  (e.g. 2)
+            #   1) :VERSION  (eg 2.0)
+            #   2) :VERSION_SPLIT  (eg 2)
             #   3) :latest
             echo "IMAGE_TAGS=ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.VERSION }},ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.VERSION_SPLIT }}" >> $GITHUB_ENV
           else
@@ -275,7 +280,7 @@ jobs:
           push: true
           tags: ${{ env.IMAGE_TAGS }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max,scope=shared
           labels: |
             org.opencontainers.image.created=${{ steps.build_date.outputs.date }}
             org.opencontainers.image.title=${{ env.LOWERCASE_NAME }}
@@ -294,14 +299,23 @@ jobs:
             org.opencontainers.image.version=${{ env.VERSION }}
 
       - name: Scan image for vulnerabilities (Trivy)
+        #if: steps.check-rebuild.outputs.rebuild == 'true'
         uses: aquasecurity/trivy-action@0.33.1
         with:
           image-ref: ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }}
-          format: table
+          format: sarif
+          output: trivy.sarif
           vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
           exit-code: 0
           ignore-unfixed: true
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        if: steps.check-rebuild.outputs.rebuild == 'true'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-${{ matrix.directory }}
 
       - name: Test imports in the container (amd64)
         if: ${{ steps.check-rebuild.outputs.rebuild == 'true' && contains(env.PLATFORMS, 'linux/amd64') }}
@@ -629,14 +643,14 @@ jobs:
           COMPONENT_DIR: responders/${{ matrix.directory }}
         run: |
           set +x  # Disable command echoing for security
-          
+
           # Force rebuild on scheduled runs (cron)
           if [ "${{ github.event_name }}" = "schedule" ]; then
             echo "Scheduled run detected - forcing rebuild"
             echo "rebuild=true" >> $GITHUB_OUTPUT
             exit 0
           fi
-
+          
           # Try to pull the image to check if it exists
           if docker pull --platform linux/amd64 "$IMAGE_NAME" >/dev/null 2>&1; then
             # Image exists, check if it has the current SHA
@@ -677,8 +691,8 @@ jobs:
             # Keep one image tag for import testing
             echo "IMAGE_TAG=${{ env.VERSION_SPLIT }}" >> $GITHUB_ENV
             # Produce three tags:
-            #   1) :VERSION  (e.g. 2.0)
-            #   2) :VERSION_SPLIT  (e.g. 2)
+            #   1) :VERSION  (eg 2.0)
+            #   2) :VERSION_SPLIT  (eg 2)
             #   3) :latest
             echo "IMAGE_TAGS=ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.VERSION }},ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.VERSION_SPLIT }}" >> $GITHUB_ENV
           else
@@ -714,7 +728,7 @@ jobs:
           push: true
           tags: ${{ env.IMAGE_TAGS }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max,scope=shared
           labels: |
             org.opencontainers.image.created=${{ steps.build_date.outputs.date }}
             org.opencontainers.image.title=${{ env.LOWERCASE_NAME }}
@@ -733,14 +747,23 @@ jobs:
             org.opencontainers.image.version=${{ env.VERSION }}
 
       - name: Scan image for vulnerabilities (Trivy)
+        #if: steps.check-rebuild.outputs.rebuild == 'true'
         uses: aquasecurity/trivy-action@0.33.1
         with:
           image-ref: ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }}
-          format: table
+          format: sarif
+          output: trivy.sarif
           vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
           exit-code: 0
           ignore-unfixed: true
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        if: steps.check-rebuild.outputs.rebuild == 'true'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-${{ matrix.directory }}
 
       - name: Test imports in the container (amd64)
         if: ${{ steps.check-rebuild.outputs.rebuild == 'true' && contains(env.PLATFORMS, 'linux/amd64') }}
