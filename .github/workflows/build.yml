@@ -303,7 +303,7 @@ jobs:
         id: get-digest
         run: |
           # Get the digest of the pushed image using buildx imagetools
-          IMAGE_DIGEST=$(docker buildx imagetools inspect ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }} --format '{{.Manifest.Digest}}' 2>/dev/null || echo "")
+          IMAGE_DIGEST=$(docker buildx imagetools inspect ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }} 2>/dev/null | grep "^Digest:" | awk '{print $2}' || echo "")
           
           if [ -n "$IMAGE_DIGEST" ]; then
             IMAGE_DIGEST="ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}@$IMAGE_DIGEST"
@@ -777,7 +777,7 @@ jobs:
         id: get-digest-responder
         run: |
           # Get the digest of the pushed image using buildx imagetools
-          IMAGE_DIGEST=$(docker buildx imagetools inspect ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }} --format '{{.Manifest.Digest}}' 2>/dev/null || echo "")
+          IMAGE_DIGEST=$(docker buildx imagetools inspect ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }} 2>/dev/null | grep "^Digest:" | awk '{print $2}' || echo "")
           
           if [ -n "$IMAGE_DIGEST" ]; then
             IMAGE_DIGEST="ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}@$IMAGE_DIGEST"
