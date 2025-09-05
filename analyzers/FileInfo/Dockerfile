@@ -1,5 +1,4 @@
-FROM python:3.9
-
+FROM python:3.12-slim-bookworm
 WORKDIR /worker
 RUN apt update
 RUN apt update                                                     && \
