@@ -19,6 +19,7 @@ RUN git clone https://github.com/JusticeRage/Manalyze.git           && \
 RUN curl -SL https://github.com/mandiant/flare-floss/releases/download/v3.1.1/floss-v3.1.1-linux.zip  --output floss.zip && \
     unzip floss.zip -d /usr/bin
 COPY . FileInfo
+RUN python -m pip install --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir -r FileInfo/requirements.txt
 
 ENTRYPOINT ["python","FileInfo/fileinfo_analyzer.py"]
