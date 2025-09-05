@@ -302,16 +302,24 @@ jobs:
       - name: Get image digest for Trivy scan
         id: get-digest
         run: |
-          # Get the digest of the pushed image
-          IMAGE_DIGEST=$(docker inspect ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }} --format='{{index .RepoDigests 0}}' 2>/dev/null || echo "")
-          if [ -z "$IMAGE_DIGEST" ]; then
-            # Fallback: try to get digest from registry
-            IMAGE_DIGEST=$(docker images --digests ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }} --format "table {{.Repository}}:{{.Tag}}\t{{.Digest}}" | grep ":${{ env.IMAGE_TAG }}" | awk '{print $2}' | head -1)
-            if [ -n "$IMAGE_DIGEST" ] && [ "$IMAGE_DIGEST" != "<none>" ]; then
-              IMAGE_DIGEST="ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}@$IMAGE_DIGEST"
-            else
-              # Ultimate fallback: use tag
-              IMAGE_DIGEST="ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }}"
+          # Get the digest of the pushed image using buildx imagetools
+          IMAGE_DIGEST=$(docker buildx imagetools inspect ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }} --format '{{.Manifest.Digest}}' 2>/dev/null || echo "")
+          
+          if [ -n "$IMAGE_DIGEST" ]; then
+            IMAGE_DIGEST="ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}@$IMAGE_DIGEST"
+          else
+            # Fallback: try docker inspect for RepoDigests
+            IMAGE_DIGEST=$(docker inspect ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }} --format='{{index .RepoDigests 0}}' 2>/dev/null || echo "")
+            
+            if [ -z "$IMAGE_DIGEST" ]; then
+              # Fallback: try to get digest from local images
+              IMAGE_DIGEST=$(docker images --digests ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }} --format "table {{.Repository}}:{{.Tag}}\t{{.Digest}}" | grep ":${{ env.IMAGE_TAG }}" | awk '{print $2}' | head -1)
+              if [ -n "$IMAGE_DIGEST" ] && [ "$IMAGE_DIGEST" != "<none>" ]; then
+                IMAGE_DIGEST="ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}@$IMAGE_DIGEST"
+              else
+                # Ultimate fallback: use tag
+                IMAGE_DIGEST="ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }}"
+              fi
             fi
           fi
           echo "IMAGE_DIGEST=$IMAGE_DIGEST" >> $GITHUB_OUTPUT
@@ -768,16 +776,24 @@ jobs:
       - name: Get image digest for Trivy scan
         id: get-digest-responder
         run: |
-          # Get the digest of the pushed image
-          IMAGE_DIGEST=$(docker inspect ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }} --format='{{index .RepoDigests 0}}' 2>/dev/null || echo "")
-          if [ -z "$IMAGE_DIGEST" ]; then
-            # Fallback: try to get digest from registry
-            IMAGE_DIGEST=$(docker images --digests ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }} --format "table {{.Repository}}:{{.Tag}}\t{{.Digest}}" | grep ":${{ env.IMAGE_TAG }}" | awk '{print $2}' | head -1)
-            if [ -n "$IMAGE_DIGEST" ] && [ "$IMAGE_DIGEST" != "<none>" ]; then
-              IMAGE_DIGEST="ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}@$IMAGE_DIGEST"
-            else
-              # Ultimate fallback: use tag
-              IMAGE_DIGEST="ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }}"
+          # Get the digest of the pushed image using buildx imagetools
+          IMAGE_DIGEST=$(docker buildx imagetools inspect ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }} --format '{{.Manifest.Digest}}' 2>/dev/null || echo "")
+          
+          if [ -n "$IMAGE_DIGEST" ]; then
+            IMAGE_DIGEST="ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}@$IMAGE_DIGEST"
+          else
+            # Fallback: try docker inspect for RepoDigests
+            IMAGE_DIGEST=$(docker inspect ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }} --format='{{index .RepoDigests 0}}' 2>/dev/null || echo "")
+            
+            if [ -z "$IMAGE_DIGEST" ]; then
+              # Fallback: try to get digest from local images
+              IMAGE_DIGEST=$(docker images --digests ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }} --format "table {{.Repository}}:{{.Tag}}\t{{.Digest}}" | grep ":${{ env.IMAGE_TAG }}" | awk '{print $2}' | head -1)
+              if [ -n "$IMAGE_DIGEST" ] && [ "$IMAGE_DIGEST" != "<none>" ]; then
+                IMAGE_DIGEST="ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}@$IMAGE_DIGEST"
+              else
+                # Ultimate fallback: use tag
+                IMAGE_DIGEST="ghcr.io/${{ env.LOWER_REPO_OWNER }}/${{ env.LOWERCASE_NAME }}:${{ env.IMAGE_TAG }}"
+              fi
             fi
           fi
           echo "IMAGE_DIGEST=$IMAGE_DIGEST" >> $GITHUB_OUTPUT
