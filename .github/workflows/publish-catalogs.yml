@@ -64,18 +64,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          upload_file() {
-            local file="$1"
-            local dest="$2"
-            for bucket in "${S3_BUCKET_PRIMARY}" "${S3_BUCKET_LEGACY}"; do
-              aws s3 cp "$file" "s3://${bucket}/${dest}" \
-                --no-progress \
-                --content-type "application/json"
-            done
-          }
+          # Primary bucket: latest/json/
+          aws s3 cp analyzers/analyzers-devel.json "s3://${S3_BUCKET_PRIMARY}/latest/json/analyzers-devel.json" --no-progress --content-type "application/json"
+          aws s3 cp responders/responders-devel.json "s3://${S3_BUCKET_PRIMARY}/latest/json/responders-devel.json" --no-progress --content-type "application/json"
 
-          upload_file "analyzers/analyzers-devel.json" "analyzers-devel.json"
-          upload_file "responders/responders-devel.json" "responders-devel.json"
+          # Legacy bucket: root
+          aws s3 cp analyzers/analyzers-devel.json "s3://${S3_BUCKET_LEGACY}/analyzers-devel.json" --no-progress --content-type "application/json"
+          aws s3 cp responders/responders-devel.json "s3://${S3_BUCKET_LEGACY}/responders-devel.json" --no-progress --content-type "application/json"
 
       - name: Upload production catalogs to S3
         if: startsWith(github.ref, 'refs/tags/')
@@ -85,17 +80,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          upload_file() {
-            local file="$1"
-            local dest="$2"
-            local content_type="${3:-application/json}"
-            for bucket in "${S3_BUCKET_PRIMARY}" "${S3_BUCKET_LEGACY}"; do
-              aws s3 cp "$file" "s3://${bucket}/${dest}" \
-                --no-progress \
-                --content-type "$content_type"
-            done
-          }
+          # Primary bucket: latest/json/ and latest/zip/
+          aws s3 cp analyzers/analyzers.json "s3://${S3_BUCKET_PRIMARY}/latest/json/analyzers.json" --no-progress --content-type "application/json"
+          aws s3 cp responders/responders.json "s3://${S3_BUCKET_PRIMARY}/latest/json/responders.json" --no-progress --content-type "application/json"
+          aws s3 cp analyzers/report-templates.zip "s3://${S3_BUCKET_PRIMARY}/latest/zip/report-templates.zip" --no-progress --content-type "application/zip"
 
-          upload_file "analyzers/analyzers.json" "analyzers.json"
-          upload_file "responders/responders.json" "responders.json"
-          upload_file "analyzers/report-templates.zip" "report-templates.zip" "application/zip"
+          # Legacy bucket: root
+          aws s3 cp analyzers/analyzers.json "s3://${S3_BUCKET_LEGACY}/analyzers.json" --no-progress --content-type "application/json"
+          aws s3 cp responders/responders.json "s3://${S3_BUCKET_LEGACY}/responders.json" --no-progress --content-type "application/json"
+          aws s3 cp analyzers/report-templates.zip "s3://${S3_BUCKET_LEGACY}/report-templates.zip" --no-progress --content-type "application/zip"
