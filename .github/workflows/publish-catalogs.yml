@@ -1,0 +1,101 @@
+name: Publish Catalogs
+
+on:
+  push:
+    branches:
+      - develop
+    tags:
+      - "*"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish-catalogs:
+    name: Build and Publish Catalogs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set lowercase repository owner
+        run: |
+          owner="${{ github.repository_owner }}"
+          lower_owner=$(echo "$owner" | tr '[:upper:]' '[:lower:]')
+          echo "LOWER_REPO_OWNER=$lower_owner" >> $GITHUB_ENV
+
+      - name: Build catalog JSON files
+        run: |
+          build_catalog() {
+            DIR=$1
+            # Devel catalog (uses :devel tag)
+            jq -s '[.[] | del(.command) + { dockerImage: ("ghcr.io/${{ env.LOWER_REPO_OWNER }}/" + (.name | ascii_downcase) + ":devel") }]' \
+              ${DIR}/*/*.json > ${DIR}/${DIR}-devel.json
+
+            # Stable catalog (uses full version tag e.g. :2.0)
+            jq -s '[.[] | del(.command) + { dockerImage: ("ghcr.io/${{ env.LOWER_REPO_OWNER }}/" + (.name | ascii_downcase) + ":" + .version) }]' \
+              ${DIR}/*/*.json > ${DIR}/${DIR}-stable.json
+
+            # Production catalog (uses major version tag e.g. :2)
+            jq -s '[.[] | del(.command) + { dockerImage: ("ghcr.io/${{ env.LOWER_REPO_OWNER }}/" + (.name | ascii_downcase) + ":" + (.version | split("."))[0]) }]' \
+              ${DIR}/*/*.json > ${DIR}/${DIR}.json
+          }
+
+          build_catalog analyzers
+          build_catalog responders
+
+      - name: Zip report-templates
+        run: zip -r ../analyzers/report-templates.zip *
+        working-directory: thehive-templates
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Upload devel catalogs to S3
+        if: github.ref == 'refs/heads/develop'
+        env:
+          S3_BUCKET_PRIMARY: ${{ secrets.AWS_S3_CATALOG_BUCKET }}
+          S3_BUCKET_LEGACY: ${{ secrets.AWS_S3_CATALOG_BUCKET_LEGACY }}
+        run: |
+          set -euo pipefail
+
+          upload_file() {
+            local file="$1"
+            local dest="$2"
+            for bucket in "${S3_BUCKET_PRIMARY}" "${S3_BUCKET_LEGACY}"; do
+              aws s3 cp "$file" "s3://${bucket}/${dest}" \
+                --no-progress \
+                --content-type "application/json"
+            done
+          }
+
+          upload_file "analyzers/analyzers-devel.json" "analyzers-devel.json"
+          upload_file "responders/responders-devel.json" "responders-devel.json"
+
+      - name: Upload production catalogs to S3
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          S3_BUCKET_PRIMARY: ${{ secrets.AWS_S3_CATALOG_BUCKET }}
+          S3_BUCKET_LEGACY: ${{ secrets.AWS_S3_CATALOG_BUCKET_LEGACY }}
+        run: |
+          set -euo pipefail
+
+          upload_file() {
+            local file="$1"
+            local dest="$2"
+            local content_type="${3:-application/json}"
+            for bucket in "${S3_BUCKET_PRIMARY}" "${S3_BUCKET_LEGACY}"; do
+              aws s3 cp "$file" "s3://${bucket}/${dest}" \
+                --no-progress \
+                --content-type "$content_type"
+            done
+          }
+
+          upload_file "analyzers/analyzers.json" "analyzers.json"
+          upload_file "responders/responders.json" "responders.json"
+          upload_file "analyzers/report-templates.zip" "report-templates.zip" "application/zip"
